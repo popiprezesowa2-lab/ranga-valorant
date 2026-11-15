@@ -134,7 +134,7 @@ ol.steps b{color:#fff}
   <div class="grid">
     <div class="f"><label>Styl</label><select id="iStyle"><option value="stats">Statystyki (RR, W/L, +RR, K/D)</option><option value="full">Pełny (ranga + RR + stream)</option><option value="compact">Kompaktowy (tylko ranga)</option></select></div>
     <div class="f"><label>Nazwy rang</label><select id="iLang"><option value="en">Angielskie (Bronze 2)</option><option value="pl">Polskie (Brąz 2)</option></select></div>
-    <div class="f full hide"><label>Grafiki rang</label><select id="iIcons"><option value="">Wbudowane (rysowane)</option><option value="rangi">Moje pliki z folderu „rangi”</option></select>
+    <div class="f full hide"><label>Grafiki rang</label><select id="iIcons"><option value="">Wbudowane (rysowane)</option><option value="rangi" selected>Moje pliki z folderu „rangi”</option></select>
       <small>Utwórz folder <b>rangi</b> obok tego pliku i wrzuć do niego obrazki PNG nazwane tak: <b>Iron_1.png</b>, <b>Iron_2.png</b>, <b>Iron_3.png</b>, <b>Bronze_1.png</b> … <b>Immortal_3.png</b>, <b>Radiant.png</b>, <b>Unrated.png</b>. Gdy jakiegoś pliku zabraknie, pokaże się wbudowany emblemat.</small></div>
     <label class="chk" style="grid-column:1/-1"><input type="checkbox" id="iSession" checked> Pokazuj wynik z obecnego streama (+RR, wygrane/przegrane)</label>
   </div>
@@ -215,7 +215,8 @@ const CONFIG={
 const P=new URLSearchParams(location.hash.length>1?location.hash.slice(1):location.search);
 if(![...P.keys()].length&&CONFIG.name){for(const k in CONFIG)if(CONFIG[k]!=='')P.set(k,CONFIG[k])}
 let LANG=P.get('lang')||'en';
-let ICONS=P.get('icons')||'';
+let ICONS=P.has('icons')?P.get('icons'):'rangi'; // folder z ikonami w repo (jeśli go nie ma – emblematy)
+const NOICON=new Set();
 
 function render(el,st){
   const {t,d}=parseRank(st.rank);
@@ -223,11 +224,12 @@ function render(el,st){
   el.style.setProperty('--c',T.c);el.style.setProperty('--c2',T.c2);
   const em=el.querySelector('.emblem');
   const svg='<svg viewBox="0 -3 64 67">'+emblemSVG(t,d)+'</svg>';
-  if(ICONS){
+  const fileKey=ICONS+'/'+(t<0?'Unrated':TIERS[t].en+(t===8?'':'_'+d));
+  if(ICONS&&!NOICON.has(fileKey)){
     const file=(t<0?'Unrated':TIERS[t].en+(t===8?'':'_'+d))+'.png';
     const img=new Image();img.alt='';
     img.onload=()=>{em.innerHTML='';em.appendChild(img)};
-    img.onerror=()=>{em.innerHTML=svg};
+    img.onerror=()=>{NOICON.add(fileKey);em.innerHTML=svg};
     img.src=ICONS.replace(/\/?$/,'/')+file;
   }else em.innerHTML=svg;
   el.querySelector('.rank').textContent=t<0?T[LANG]:(T[LANG]+(t===8?'':' '+d));
