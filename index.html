@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Valorant Rank Overlay – by Nathxn</title>
+<!-- Valorant Rank Overlay – by Nathxn -->
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--c:#a5714a;--c2:#6e4529}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:transparent;font-family:Inter,"Segoe UI",Arial,sans-serif;color:#fff;overflow:hidden}
+
+/* ===== OVERLAY ===== */
+#overlay{display:inline-flex;align-items:center;gap:12px;padding:8px 16px 8px 12px;margin:14px;
+  background:linear-gradient(90deg,rgba(12,14,20,.9),rgba(12,14,20,.74));border-radius:12px;
+  border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 22px rgba(0,0,0,.4);position:relative;
+  opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s}
+#overlay.ready{opacity:1;transform:none}
+#overlay::before{content:"";position:absolute;left:0;top:14%;bottom:14%;width:3px;border-radius:3px;background:var(--c);box-shadow:0 0 10px var(--c)}
+.emblem{width:54px;height:54px;flex:none;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 7px var(--c));transition:filter .4s}
+.emblem svg,.emblem img{width:100%;height:100%;object-fit:contain}
+.glow .emblem{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{filter:drop-shadow(0 0 14px var(--c)) brightness(1.15)}}
+.info{display:flex;flex-direction:column;gap:5px;min-width:140px}
+.rank{font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:25px;letter-spacing:1.2px;text-transform:uppercase;line-height:1;color:var(--c);text-shadow:0 2px 0 rgba(0,0,0,.55)}
+.rrrow{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#d5d9e2}
+.bar{flex:1;height:6px;background:rgba(255,255,255,.13);border-radius:4px;overflow:hidden;min-width:96px}
+.fill{height:100%;width:0;background:linear-gradient(90deg,var(--c2),var(--c));border-radius:4px;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.session{display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding-left:13px;border-left:1px solid rgba(255,255,255,.12);font-size:12px;font-weight:800;color:#d5d9e2;min-width:62px}
+.session .lbl{font-size:9px;letter-spacing:1.5px;color:#8b91a0;text-transform:uppercase}
+.session .delta{font-family:Oswald,Impact,sans-serif;font-size:21px;line-height:1}
+.pos{color:#3ee08f}.neg{color:#ff5468}.zero{color:#d5d9e2}
+.toast{position:absolute;right:-8px;top:-12px;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:18px;padding:2px 9px;border-radius:7px;background:rgba(12,14,20,.96);border:1px solid rgba(255,255,255,.12);opacity:0;transform:translateY(8px) scale(.9);transition:.45s}
+.toast.show{opacity:1;transform:none}
+.err{position:absolute;left:12px;bottom:-16px;font-size:10px;color:#ff8a98;white-space:nowrap}
+/* styl "statystyki" */
+.stats{display:none;gap:24px;align-items:center;padding-right:4px}
+.st .stats{display:flex}
+.st .info,.st .session{display:none}
+.st{padding:9px 18px 9px 12px;gap:14px}
+.st::before{display:none}
+.stats .col{display:flex;flex-direction:column;gap:4px}
+.stats .big{display:flex;align-items:baseline;gap:5px}
+.stats .big b{font-weight:800;font-size:25px;line-height:1;color:#fff;letter-spacing:-.3px}
+.stats .big b.pos{color:#3ee08f}.stats .big b.neg{color:#ff5468}
+.stats .big span,.stats .u{font-size:12px;font-weight:800;color:#8b91a0}
+.stats .sub{font-size:17px;font-weight:800;display:flex;gap:4px;align-items:baseline;line-height:1}
+.stats .sub b{color:#fff}
+.stats .slash{color:#8b91a0}
+.man .stats .right,.man .stats .sub{display:none}
+.compact .session,.compact .rrrow{display:none}
+.compact .info{min-width:0}
+.nosession .session{display:none}
+
+/* ===== KONFIGURATOR ===== */
+body.config{background:#0e1016;overflow:auto}
+.cfg{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+.cfg h1{font-family:Oswald,sans-serif;font-size:30px;letter-spacing:1px;margin-bottom:4px}
+.cfg h1 span{color:#ff4655}
+.cfg .sub{color:#9aa0ad;font-size:14px;margin-bottom:22px}
+.preview{background:repeating-conic-gradient(#1b1e27 0 25%,#151820 0 50%) 0 0/22px 22px;border-radius:14px;padding:20px;margin-bottom:22px;border:1px solid #232733;min-height:110px;display:flex;align-items:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.f{display:flex;flex-direction:column;gap:6px}
+.f.full{grid-column:1/-1}
+.f label{font-size:12px;font-weight:700;color:#b6bcc8;letter-spacing:.4px}
+.f input,.f select{background:#171a23;border:1px solid #2a2f3c;color:#fff;border-radius:9px;padding:10px 12px;font:inherit;font-size:14px;outline:none}
+.f input:focus,.f select:focus{border-color:#ff4655}
+.f small{color:#7d8392;font-size:11.5px;line-height:1.4}
+.f small a{color:#ff6b77}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:#d5d9e2;cursor:pointer}
+.sec{font-family:Oswald,sans-serif;font-size:17px;letter-spacing:.6px;margin:26px 0 12px;color:#fff}
+.out{display:flex;gap:8px}
+.out input{flex:1;font-family:Consolas,monospace;font-size:12.5px}
+.btn{background:#ff4655;color:#fff;border:0;border-radius:9px;padding:0 18px;font:inherit;font-weight:800;cursor:pointer}
+.btn:hover{background:#ff5a68}
+ol.steps{color:#c3c8d2;font-size:14px;line-height:1.7;padding-left:20px}
+ol.steps b{color:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{background:#171a23;border:1px solid #2a2f3c;color:#b6bcc8;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px}
+.tab.on{background:#ff4655;border-color:#ff4655;color:#fff}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="emblem" id="emblem"></div>
+  <div class="info">
+    <div class="rank" id="rank">—</div>
+    <div class="rrrow"><div class="bar"><div class="fill" id="fill"></div></div><span id="rr">0 RR</span></div>
+  </div>
+  <div class="session">
+    <span class="lbl">Stream</span>
+    <span class="delta zero" id="delta">±0</span>
+    <span id="wl">0W 0L</span>
+  </div>
+  <div class="stats">
+    <div class="col"><div class="big"><b id="sRR">0</b><span>RR</span></div>
+      <div class="sub"><span class="pos" id="sW">0W</span><span class="slash">/</span><span class="neg" id="sL">0L</span></div></div>
+    <div class="col right"><div class="big"><b id="sDelta" class="zero">±0</b><span>RR</span></div>
+      <div class="sub"><b id="sKD">–</b><span class="u">K/D</span></div></div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="err" id="err"></div>
+</div>
+
+<div class="cfg hide" id="cfg">
+  <h1>VALORANT <span>RANK</span> OVERLAY</h1>
+  <p class="sub">Wpisz swój nick i klucz, skopiuj link i wklej go w OBS jako źródło „Przeglądarka”. Twój klucz zostaje tylko w twoim linku – nie jest nigdzie zapisywany.</p>
+
+  <div class="preview" id="previewBox"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-mode="auto">Automatycznie (API)</button>
+    <button class="tab" data-mode="manual">Ręcznie</button>
+  </div>
+
+  <div class="grid" id="autoFields">
+    <div class="f"><label>Nick w Valorancie</label><input id="iName" placeholder="np. Nathxn"></div>
+    <div class="f"><label>Tag (bez #)</label><input id="iTag" placeholder="np. EUW"></div>
+    <div class="f"><label>Region</label>
+      <select id="iRegion"><option value="eu">Europa (EU)</option><option value="na">Ameryka Pn. (NA)</option><option value="ap">Azja-Pacyfik (AP)</option><option value="kr">Korea (KR)</option><option value="latam">LATAM</option><option value="br">Brazylia (BR)</option></select></div>
+    <div class="f"><label>Odświeżanie co (sekund)</label><input id="iRefresh" type="number" min="30" value="120"></div>
+    <div class="f full"><label>Klucz API (HenrikDev)</label><input id="iKey" placeholder="HDEV-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      <small>Darmowy: wejdź na Discord HenrikDev, kanał <b>#get-a-key</b> → wybierz „VALORANT (Basic Key)”. Klucze widzisz też na <a href="https://api.henrikdev.xyz/dashboard/" target="_blank">api.henrikdev.xyz/dashboard</a>. Nie pokazuj tego linku na streamie!</small></div>
+  </div>
+
+  <div class="grid hide" id="manualFields">
+    <div class="f"><label>Ranga</label><select id="iRank"></select></div>
+    <div class="f"><label>RR (0–100)</label><input id="iRR" type="number" min="0" max="100" value="45"></div>
+  </div>
+
+  <div class="sec">Wygląd</div>
+  <div class="grid">
+    <div class="f"><label>Styl</label><select id="iStyle"><option value="stats">Statystyki (RR, W/L, +RR, K/D)</option><option value="full">Pełny (ranga + RR + stream)</option><option value="compact">Kompaktowy (tylko ranga)</option></select></div>
+    <div class="f"><label>Nazwy rang</label><select id="iLang"><option value="en">Angielskie (Bronze 2)</option><option value="pl">Polskie (Brąz 2)</option></select></div>
+    <div class="f full hide"><label>Grafiki rang</label><select id="iIcons"><option value="">Wbudowane (rysowane)</option><option value="rangi">Moje pliki z folderu „rangi”</option></select>
+      <small>Utwórz folder <b>rangi</b> obok tego pliku i wrzuć do niego obrazki PNG nazwane tak: <b>Iron_1.png</b>, <b>Iron_2.png</b>, <b>Iron_3.png</b>, <b>Bronze_1.png</b> … <b>Immortal_3.png</b>, <b>Radiant.png</b>, <b>Unrated.png</b>. Gdy jakiegoś pliku zabraknie, pokaże się wbudowany emblemat.</small></div>
+    <label class="chk" style="grid-column:1/-1"><input type="checkbox" id="iSession" checked> Pokazuj wynik z obecnego streama (+RR, wygrane/przegrane)</label>
+  </div>
+
+  <div class="sec">Link do OBS</div>
+  <div class="out"><input id="oUrl" readonly><button class="btn" id="copy">Kopiuj</button></div>
+
+  <div class="sec">Jak dodać do OBS</div>
+  <ol class="steps">
+    <li>W OBS kliknij <b>+</b> w Źródłach → <b>Przeglądarka</b>.</li>
+    <li><b>Odznacz</b> „Plik lokalny” (jeśli jest zaznaczony) i w polu <b>URL</b> wklej skopiowany link.</li>
+    <li>Szerokość <b>460</b>, wysokość <b>110</b> → OK. Przesuń plakietkę tam, gdzie chcesz.</li>
+    <li><b>Nie zaznaczaj</b> „Wyłącz źródło, gdy nie jest widoczne”.</li>
+    <li>W „Uprawnienia strony” wybierz opcję z <b>odczytem stanu OBS</b> – wtedy licznik zeruje się sam w chwili, gdy klikasz „Rozpocznij transmisję”.</li>
+    <li>Licznik zeruje się też, gdy nakładka (OBS) była wyłączona dłużej niż 30 minut. Ręczny reset: prawy klik na źródło → <b>Interakcja</b> → kliknij dwa razy w plakietkę.</li>
+  </ol>
+  <p style="margin-top:30px;color:#5d6372;font-size:12px">Valorant Rank Overlay · by Nathxn · dane: HenrikDev API · Nie jest powiązane z Riot Games.</p>
+</div>
+
+<script>
+/* ---------- dane rang ---------- */
+const TIERS=[
+ {en:'Iron',pl:'Żelazo',c:'#9a9a9a',c2:'#4d4d4d'},
+ {en:'Bronze',pl:'Brąz',c:'#c88a55',c2:'#6e4529'},
+ {en:'Silver',pl:'Srebro',c:'#dfe6ea',c2:'#7c8890'},
+ {en:'Gold',pl:'Złoto',c:'#f1c84b',c2:'#9a6b12'},
+ {en:'Platinum',pl:'Platyna',c:'#45c3d3',c2:'#1d6a78'},
+ {en:'Diamond',pl:'Diament',c:'#d08cf5',c2:'#7a3fa8'},
+ {en:'Ascendant',pl:'Wniebowstąpienie',c:'#34d98f',c2:'#137a4b'},
+ {en:'Immortal',pl:'Nieśmiertelność',c:'#ff5468',c2:'#8f1d33'},
+ {en:'Radiant',pl:'Radiant',c:'#fff1a6',c2:'#e0a92c'}
+];
+const UNRATED={en:'Unrated',pl:'Bez rangi',c:'#8b91a0',c2:'#454a56'};
+
+function parseRank(s){
+  if(!s) return {t:-1,d:0};
+  const m=String(s).toLowerCase().match(/(iron|bronze|silver|gold|platinum|diamond|ascendant|immortal|radiant)\s*(\d)?/);
+  if(!m) return {t:-1,d:0};
+  const t=TIERS.findIndex(x=>x.en.toLowerCase()===m[1]);
+  return {t,d:t===8?0:(+m[2]||1)};
+}
+
+/* ---------- autorskie emblematy (SVG) ---------- */
+function emblemSVG(t,d){
+  const T=t<0?UNRATED:TIERS[t];
+  const C=[32,30];
+  const V=[[32,4],[55,18],[50,45],[32,58],[14,45],[9,18]];
+  const gid='g'+Math.random().toString(36).slice(2,8);
+  let s=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T.c}"/><stop offset="1" stop-color="${T.c2}"/></linearGradient></defs>`;
+  // promienie dla Radianta
+  if(t===8){for(let i=0;i<12;i++){const a=i*Math.PI/6;s+=`<line x1="32" y1="31" x2="${32+30*Math.cos(a)}" y2="${31+30*Math.sin(a)}" stroke="${T.c}" stroke-width="2" opacity=".55"/>`}}
+  // skrzydła od Platyny w górę
+  if(t>=4){const w=4+(t-4)*2.2;
+    s+=`<polygon points="9,18 ${9-w},${12-w*.6} 12,34" fill="${T.c2}" stroke="${T.c}" stroke-width="1"/>`;
+    s+=`<polygon points="55,18 ${55+w},${12-w*.6} 52,34" fill="${T.c2}" stroke="${T.c}" stroke-width="1"/>`;}
+  // korona od Immortala
+  if(t>=7){s+=`<polygon points="24,6 28,-1 32,4 36,-1 40,6" fill="${T.c}"/>`}
+  s+=`<polygon points="${V.map(p=>p.join(',')).join(' ')}" fill="url(#${gid})" stroke="rgba(0,0,0,.55)" stroke-width="1.5"/>`;
+  const shade=[['#fff',.35],['#fff',.12],['#000',.18],['#000',.32],['#000',.12],['#fff',.22]];
+  V.forEach((p,i)=>{const q=V[(i+1)%V.length];s+=`<polygon points="${C} ${p} ${q}" fill="${shade[i][0]}" opacity="${shade[i][1]}"/>`});
+  s+=`<polygon points="32,14 42,30 32,46 22,30" fill="${T.c}" stroke="rgba(255,255,255,.6)" stroke-width="1"/>`;
+  s+=`<polygon points="32,14 42,30 32,30" fill="#fff" opacity=".35"/>`;
+  // kropki dywizji
+  if(t>=0&&t<8){const xs=d===1?[32]:d===2?[27,37]:[22,32,42];
+    xs.forEach(x=>s+=`<polygon points="${x},49 ${x+3.5},52.5 ${x},56 ${x-3.5},52.5" fill="#fff" stroke="rgba(0,0,0,.5)" stroke-width=".8"/>`)}
+  return s;
+}
+
+/* ---------- render ---------- */
+const $=id=>document.getElementById(id);
+/* ===== TWOJE USTAWIENIA ===== */
+const CONFIG={
+  name:'', tag:'', region:'eu',
+  key:'',
+  style:'stats', refresh:120, icons:'', lang:'en'
+};
+/* ============================ */
+const P=new URLSearchParams(location.hash.length>1?location.hash.slice(1):location.search);
+if(![...P.keys()].length&&CONFIG.name){for(const k in CONFIG)if(CONFIG[k]!=='')P.set(k,CONFIG[k])}
+let LANG=P.get('lang')||'en';
+let ICONS=P.get('icons')||'';
+
+function render(el,st){
+  const {t,d}=parseRank(st.rank);
+  const T=t<0?UNRATED:TIERS[t];
+  el.style.setProperty('--c',T.c);el.style.setProperty('--c2',T.c2);
+  const em=el.querySelector('.emblem');
+  const svg='<svg viewBox="0 -3 64 67">'+emblemSVG(t,d)+'</svg>';
+  if(ICONS){
+    const file=(t<0?'Unrated':TIERS[t].en+(t===8?'':'_'+d))+'.png';
+    const img=new Image();img.alt='';
+    img.onload=()=>{em.innerHTML='';em.appendChild(img)};
+    img.onerror=()=>{em.innerHTML=svg};
+    img.src=ICONS.replace(/\/?$/,'/')+file;
+  }else em.innerHTML=svg;
+  el.querySelector('.rank').textContent=t<0?T[LANG]:(T[LANG]+(t===8?'':' '+d));
+  const rr=Math.max(0,+st.rr||0);
+  el.querySelector('.fill').style.width=(t===8||t===7&&rr>100?100:Math.min(rr,100))+'%';
+  el.querySelector('.rrrow span').textContent=rr+' RR';
+  el.classList.toggle('glow',t>=7);
+  const dl=el.querySelector('.session .delta');
+  const v=st.delta||0;
+  dl.textContent=(v>0?'+':v<0?'':'±')+v;
+  dl.className='delta '+(v>0?'pos':v<0?'neg':'zero');
+  el.querySelector('.session span:last-child').textContent=`${st.w||0}W ${st.l||0}L`;
+  el.querySelector('#sRR').textContent=rr;
+  const sd=el.querySelector('#sDelta');sd.textContent=(v>0?'+':v<0?'':'±')+v;sd.className=v>0?'pos':v<0?'neg':'zero';
+  el.querySelector('#sW').textContent=(st.w||0)+'W';el.querySelector('#sL').textContent=(st.l||0)+'L';
+  el.querySelector('#sKD').textContent=st.kd!=null?(+st.kd).toFixed(2):'–';
+  el.classList.add('ready');
+}
+
+function toast(v){
+  const e=$('toast');e.textContent=(v>0?'+':'')+v+' RR';e.className='toast show '+(v>0?'pos':'neg');
+  clearTimeout(toast.t);toast.t=setTimeout(()=>e.className='toast',6000);
+}
+
+/* ---------- API HenrikDev ---------- */
+const NAME=P.get('name'),TAG=P.get('tag'),REGION=(P.get('region')||'eu').toLowerCase(),KEY=P.get('key')||'';
+const enc=encodeURIComponent;
+async function api(path){
+  const r=await fetch('https://api.henrikdev.xyz/valorant/'+path,{headers:KEY?{Authorization:KEY}:{}});
+  if(!r.ok){const e=new Error(r.status);e.code=r.status;throw e}
+  return (await r.json()).data;
+}
+async function getMMR(){
+  try{
+    const d=await api(`v3/mmr/${REGION}/pc/${enc(NAME)}/${enc(TAG)}`);const c=d.current||{};if(d.account&&d.account.puuid)PUUID=d.account.puuid;
+    return {rank:c.tier&&c.tier.name,rr:c.rr,elo:c.elo};
+  }catch(e){
+    if(e.code===401||e.code===403||e.code===429) throw e;
+    const d=await api(`v2/mmr/${REGION}/${enc(NAME)}/${enc(TAG)}`);const c=d.current_data||{};
+    return {rank:c.currenttierpatched,rr:c.ranking_in_tier,elo:c.elo};
+  }
+}
+async function getHistory(){
+  let d;
+  try{d=await api(`v2/mmr-history/${REGION}/pc/${enc(NAME)}/${enc(TAG)}`)}
+  catch(e){d=await api(`v1/mmr-history/${REGION}/${enc(NAME)}/${enc(TAG)}`)}
+  const arr=Array.isArray(d)?d:(d&&d.history)||[];
+  return arr.map(x=>({ch:x.last_change??x.mmr_change_to_last_game??0,
+    t:x.date?Date.parse(x.date):(x.date_raw||0)*1000,id:x.match_id||x.date||x.date_raw}));
+}
+
+/* K/D z meczów rankingowych od początku streama */
+let PUUID=null;
+const norm=x=>String(x||'').toLowerCase().replace(/\s+/g,'');
+const same=p=>p&&((PUUID&&p.puuid===PUUID)||(norm(p.name)===norm(NAME)&&norm(p.tag)===norm(TAG)));
+async function getKD(){
+  let list=[];
+  try{
+    const d=await api(`v4/matches/${REGION}/pc/${enc(NAME)}/${enc(TAG)}?mode=competitive&size=10`);
+    list=(d||[]).map(m=>{const me=(m.players||[]).find(same)||{};const x=me.stats||{};
+      return {t:Date.parse(m.metadata&&m.metadata.started_at),k:x.kills||0,d:x.deaths||0}});
+  }catch(e){
+    if(e.code===401||e.code===403||e.code===429) throw e;
+    const d=await api(`v3/matches/${REGION}/${enc(NAME)}/${enc(TAG)}?mode=competitive&size=10`);
+    list=(d||[]).map(m=>{const all=(m.players&&m.players.all_players)||[];const me=all.find(same)||{};const x=me.stats||{};
+      return {t:((m.metadata&&m.metadata.game_start)||0)*1000,k:x.kills||0,d:x.deaths||0}});
+  }
+  const s=list.filter(x=>x.t>=session.start);
+  if(!s.length) return null;
+  const K=s.reduce((a,x)=>a+x.k,0),D=s.reduce((a,x)=>a+x.d,0);
+  return D?K/D:K;
+}
+let kdCache=null,kdFor='__none__';
+
+/* sesja streama (localStorage, auto-reset po 10h) */
+const SKEY='vro_session_'+(NAME||'')+'#'+(TAG||'');
+const GAP=30*60e3; // nakładka wyłączona dłużej niż 30 min = nowy stream
+function newSession(){return {start:Date.now(),elo:null,seen:Date.now()}}
+function loadSession(){
+  let s=null;try{s=JSON.parse(localStorage.getItem(SKEY))}catch(e){}
+  if(P.get('reset')==='1'||!s||Date.now()-(s.seen||s.start)>GAP) s=newSession();
+  return s;
+}
+function resetSession(){
+  session=newSession();saveSession(session);kdCache=null;kdFor='__none__';
+  render($('overlay'),{rank:$('overlay').dataset.rank,rr:$('overlay').dataset.rr,delta:0,w:0,l:0,kd:null});
+  tick();
+}
+function saveSession(s){try{localStorage.setItem(SKEY,JSON.stringify(s))}catch(e){}}
+
+let session=null,lastId=null;
+async function tick(){
+  try{
+    const m=await getMMR();
+    let st={rank:m.rank,rr:m.rr,delta:0,w:0,l:0};
+    if(session.elo==null&&m.elo!=null){session.elo=m.elo;saveSession(session)}
+    try{
+      const h=await getHistory();
+      const since=h.filter(x=>x.t>=session.start);
+      st.w=since.filter(x=>x.ch>0).length;st.l=since.filter(x=>x.ch<0).length;
+      st.delta=(m.elo!=null&&session.elo!=null)?m.elo-session.elo:since.reduce((a,x)=>a+x.ch,0);
+      const top=h[0]?h[0].id:null;
+      if(STYLE==='stats'&&top!==kdFor){try{kdCache=await getKD();kdFor=top}catch(e){}}
+      if(h[0]){if(lastId!=null&&h[0].id!==lastId&&h[0].t>=session.start)toast(h[0].ch);lastId=h[0].id}
+    }catch(e){}
+    st.kd=kdCache;
+    $('overlay').dataset.rank=st.rank||'';$('overlay').dataset.rr=st.rr||0;
+    render($('overlay'),st);$('err').textContent='';
+  }catch(e){
+    const msg={401:'Brak klucza API',403:'Zły klucz API',404:'Nie znaleziono gracza',429:'Limit API – zwiększ odświeżanie'}[e.code]||'Błąd API';
+    $('err').textContent=msg;$('overlay').classList.add('ready');
+  }
+}
+
+/* ---------- tryby ---------- */
+const STYLE=P.get('style')||'full';
+if(STYLE==='compact')$('overlay').classList.add('compact');
+if(STYLE==='stats')$('overlay').classList.add('st');
+if(P.get('session')==='0')$('overlay').classList.add('nosession');
+
+if(P.get('demo')==='1'){
+  const list=['Iron 1','Bronze 2','Silver 3','Gold 1','Platinum 2','Diamond 3','Ascendant 1','Immortal 2','Radiant'];let i=0;
+  const go=()=>{render($('overlay'),{rank:list[i%list.length],rr:Math.floor(Math.random()*100),delta:Math.round(Math.random()*80-30),w:3,l:1,kd:.6+Math.random()});if(i%3===2)toast(Math.random()>.4?19:-15);i++};
+  go();setInterval(go,3000);
+}else if(P.get('rank')){
+  render($('overlay'),{rank:P.get('rank'),rr:P.get('rr')});
+  $('overlay').classList.add('nosession','man');
+}else if(NAME&&TAG){
+  session=loadSession();saveSession(session);
+  // "jestem włączona" co 30 s – po streamie OBS się zamyka, więc następnym razem licznik startuje od 0
+  setInterval(()=>{session.seen=Date.now();saveSession(session)},30e3);
+  // OBS: start streama = nowy licznik
+  window.addEventListener('obsStreamingStarted',resetSession);
+  // ręczny reset: OBS → prawy klik na źródło → Interakcja → podwójne kliknięcie w plakietkę
+  $('overlay').addEventListener('dblclick',resetSession);
+  tick();setInterval(tick,Math.max(30,+P.get('refresh')||120)*1000);
+}else{
+  /* ---------- konfigurator ---------- */
+  document.body.classList.add('config');
+  const ov=$('overlay');$('previewBox').appendChild(ov);$('cfg').classList.remove('hide');
+  const sel=$('iRank');
+  TIERS.forEach((T,t)=>{(t===8?[0]:[1,2,3]).forEach(d=>{const o=document.createElement('option');o.value=T.en+(d?' '+d:'');o.textContent=T.en+(d?' '+d:'')+'  ('+T.pl+(d?' '+d:'')+')';sel.appendChild(o)})});
+  sel.value='Bronze 2';
+  let mode='auto';
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+    mode=b.dataset.mode;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
+    $('autoFields').classList.toggle('hide',mode!=='auto');$('manualFields').classList.toggle('hide',mode!=='manual');update();
+  });
+  function update(){
+    LANG=$('iLang').value;ICONS=$('iIcons').value;
+    const sty=$('iStyle').value;
+    ov.classList.toggle('compact',sty==='compact');ov.classList.toggle('st',sty==='stats');ov.classList.toggle('man',mode==='manual');
+    ov.classList.toggle('nosession',!$('iSession').checked||mode==='manual');
+    const q=new URLSearchParams();
+    if(mode==='manual'){q.set('rank',$('iRank').value);q.set('rr',$('iRR').value);
+      render(ov,{rank:$('iRank').value,rr:$('iRR').value});}
+    else{q.set('name',$('iName').value.trim());q.set('tag',$('iTag').value.trim().replace('#',''));q.set('region',$('iRegion').value);
+      q.set('key',$('iKey').value.trim());q.set('refresh',$('iRefresh').value);
+      if(!$('iSession').checked)q.set('session','0');
+      render(ov,sty==='stats'?{rank:'Immortal 2',rr:527,delta:73,w:4,l:0,kd:1.3}:{rank:'Bronze 2',rr:45,delta:23,w:3,l:1});}
+    if(sty!=='full')q.set('style',sty);
+    if(LANG==='pl')q.set('lang','pl');
+    if(ICONS)q.set('icons',ICONS);
+    $('oUrl').value=location.href.split('?')[0].split('#')[0]+'#'+q.toString();
+  }
+  document.querySelectorAll('#cfg input,#cfg select').forEach(e=>e.addEventListener('input',update));
+  $('copy').onclick=()=>{$('oUrl').select();navigator.clipboard?navigator.clipboard.writeText($('oUrl').value):document.execCommand('copy');$('copy').textContent='Skopiowano!';setTimeout(()=>$('copy').textContent='Kopiuj',1500)};
+  update();
+}
+</script>
+</body>
+</html>
